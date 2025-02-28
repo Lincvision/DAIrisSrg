@@ -93,13 +93,13 @@ class Solver_sim_learn(object):
                 prediction, _, aff_cup = self.net(images)
                 self.optimizer.zero_grad()
 
-                bg_label = label_cup[0].cuda(non_blocking=True)  # 取出移动前后保持不变的背景区域
-                fg_label = label_cup[1].cuda(non_blocking=True)  # 移动前后保持不变的虹膜区域
-                neg_label = label_cup[2].cuda(non_blocking=True)  # 移动前后发生变化的部分，且该部分是虹膜区域或背景区域即确定性区域。
+                bg_label = label_cup[0].cuda(non_blocking=True)  
+                fg_label = label_cup[1].cuda(non_blocking=True)  
+                neg_label = label_cup[2].cuda(non_blocking=True) 
 
-                bg_count = torch.sum(bg_label) + 1e-5  # 移动前后背景区域没有发生变化的数量。
-                fg_count = torch.sum(fg_label) + 1e-5  # 移动前后虹膜区域没有发生变换的数量。
-                neg_count = torch.sum(neg_label) + 1e-5  # 移动前后虹膜区域和背景区域发生变换的数量
+                bg_count = torch.sum(bg_label) + 1e-5  
+                fg_count = torch.sum(fg_label) + 1e-5  
+                neg_count = torch.sum(neg_label) + 1e-5  
 
                 bg_loss = torch.sum(- bg_label * torch.log(aff_cup + 1e-5)) / bg_count
                 fg_loss = torch.sum(- fg_label * torch.log(aff_cup + 1e-5)) / fg_count
