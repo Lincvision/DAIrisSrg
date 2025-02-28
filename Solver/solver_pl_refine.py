@@ -111,28 +111,22 @@ class Solver_pl_refine(object):
 
             with torch.no_grad():
                 _, _,  aff_cup = self.net.forward(images, to_dense=True)
-                aff_mat_cup = torch.pow(aff_cup, 2)  # 公式5 分子
-                trans_mat_cup = aff_mat_cup / torch.sum(aff_mat_cup, dim=0, keepdim=True)  # 公式5 分母
+                aff_mat_cup = torch.pow(aff_cup, 2) 
+                trans_mat_cup = aff_mat_cup / torch.sum(aff_mat_cup, dim=0, keepdim=True) 
                 for _ in range(2):
                     trans_mat_cup = torch.matmul(trans_mat_cup, trans_mat_cup)
 
                 cam_vec_cup = cam[:, 0].view(1, -1) # pj
-                cam_rw_cup = torch.matmul(cam_vec_cup.cuda(), trans_mat_cup) # 得到pre_i
+                cam_rw_cup = torch.matmul(cam_vec_cup.cuda(), trans_mat_cup) 
                 cam_rw_cup = cam_rw_cup.view(1, 1, dheight, dwidth)
-
-                # 得到公式5的两个结果：pre_i
                 cam_rw_save_cup = torch.nn.Upsample((self.input_size_w, self.input_size_h), mode='bilinear')(cam_rw_cup)
-                # cam_rw_save_cup = torch.nn.Upsample((256, 256), mode='bilinear')(cam_rw_cup)
-
-                # 对应公式6的结果：p'i
                 cam_rw = cam_rw_save_cup[0, 0] / torch.max(cam_rw_save_cup[0, 0])
                 prob_dic[filename] = cam_rw.detach().cpu().numpy()
                 pseudo_label_dic[filename] = (cam_rw > 0.5).long().detach().cpu().numpy()
 
                 cam_rw_save_cup = torch.nn.Upsample((images.shape[2], images.shape[3]), mode='bilinear')(cam_rw_cup)
                 cam_rw = cam_rw_save_cup[0, 0] / torch.max(cam_rw_save_cup[0, 0])
-                pseudo_label_rw = (cam_rw > 0.5).long().detach().cpu().numpy()  # 默认是0.5 我测试阈值0.99
-
+                pseudo_label_rw = (cam_rw > 0.5).long().detach().cpu().numpy() 
                 "Save after refine result"
                 pseudo_label_rw_np = pseudo_label_rw * 255
                 pseudo_label_rw_np = np.uint8(pseudo_label_rw_np)
@@ -140,23 +134,15 @@ class Solver_pl_refine(object):
                 save_result = save_result.resize((images.shape[2], images.shape[3]))
                 fn = os.path.join(file_path_2, filename[0] + '.png')
                 save_result.save(fn)
-
-
                 gt = gt.to(self.device)
                 pseudo_label_rw = torch.unsqueeze(torch.from_numpy(pseudo_label_rw), 0)
                 pseudo_label_rw = pseudo_label_rw.to(self.device)
-                # 精炼后的伪标签预测结果。
-
                 "Compute after refine MIOU"
                 dice_cam_rw_cup = Compute_metrics(pseudo_label_rw, torch.squeeze(gt, 0)).compute_mIoU()
                 dice_after += dice_cam_rw_cup
-
         dice_before = dice_before / len(self.train_loader)
         dice_after = dice_after / len(self.train_loader)
         dice_origin = dice_origin / len(self.train_loader)
-        print('原始的结果：%.4f' % dice_origin)
-        print('优化前结果：%.4f' % dice_before)
-        print('优化后结果：%.4f' % dice_after)
 
 
 
