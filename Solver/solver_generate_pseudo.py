@@ -29,28 +29,20 @@ class Solver_generate_pseudo(object):
     def __init__(self, config):
 
 
-        # 定义网络
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
         self.model_dis = BoundaryDiscriminator().to(self.device)
         self.model_dis2 = UncertaintyDiscriminator().to(self.device)
         self.model_type = config.model_type
-
-        # 定义路径:
         self.model_path = None
         self.Bulid_model_path(config.model_path)
-
         self.source = config.source_dataset
         self.target = config.target_dataset
         self.pseudo_file = config.pseudo_file
-
-        # pseudo result
         self.pseudo_label_dic = {}
         self.uncertain_dic = {}
         self.proto_pseudo_dic = {}
         self.prob_dic = {}
-
         self.input_size_w = None
         self.input_size_h = None
         self.Bulid_input_size(self.target)
@@ -91,8 +83,7 @@ class Solver_generate_pseudo(object):
 
 
     def generate_pseudo(self):
-        start_time = timeit.default_timer()  # 定义起始时间
-
+        start_time = timeit.default_timer() 
         net_path = self.model_path
         checkpoint = torch.load(net_path)
         self.net.load_state_dict(checkpoint, strict=False)
@@ -105,7 +96,6 @@ class Solver_generate_pseudo(object):
             images = sample[0].to(self.device)
             GT = sample[1].to(self.device)
             filename = sample[2]
-
             'origin---------------------:'
             preds_origin, _, _ = self.net(images)
             preds_origin[preds_origin >= 0.5] = 1
@@ -113,7 +103,6 @@ class Solver_generate_pseudo(object):
             iou_score_origin = Compute_metrics(preds_origin, GT).compute_mIoU()
             epoch_origin += iou_score_origin
             'origin---------------------'
-
             preds = torch.zeros([10, images.shape[0], 1, self.input_size_w, self.input_size_h]).cuda() # torch.Size([10, 32, 1, 384, 288])
             if self.model_type == 'deeplab':
                 features = torch.zeros([10, images.shape[0], 304, self.input_size_w//4, self.input_size_h//4]).cuda()
@@ -180,7 +169,7 @@ class Solver_generate_pseudo(object):
             proto_pseudo_miou = proto_pseudo.clone()
             mask_0_obj_miou = torch.zeros([pseudo_label.shape[0], 1, pseudo_label.shape[2], pseudo_label.shape[3]]).to(self.device)  # torch.Size([1, 512, 512])
             mask_0_bck_miou = torch.zeros([pseudo_label.shape[0], 1, pseudo_label.shape[2], pseudo_label.shape[3]]).to(self.device)
-            mask_0_obj_miou[std_map_miou < 0.05] = 1.0; mask_0_bck_miou[std_map_miou < 0.05] = 1.0  # 对于边缘的预测是模棱两可的。
+            mask_0_obj_miou[std_map_miou < 0.05] = 1.0; mask_0_bck_miou[std_map_miou < 0.05] = 1.0  
             mask_miou = mask_0_obj_miou * pseudo_label + mask_0_bck_miou * (1.0 - pseudo_label)
             mask_proto_miou = torch.zeros([pseudo_label.shape[0], 1, pseudo_label.shape[2], pseudo_label.shape[3]]).to(self.device)  # torch.Size([1, 1, 384, 288])
             mask_proto_miou[pseudo_label_miou == proto_pseudo_miou] = 1.0
