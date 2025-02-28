@@ -21,46 +21,35 @@ from scipy import ndimage
 class Solver(object):
     def __init__(self, config):
 
-        # 定义网络
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if config.model_type == 'deeplab':
-            # self.net = DeepLab(num_classes=1, backbone='resnet34', output_stride=config.out_stride, sync_bn=False,freeze_bn=False).to(self.device)
             self.net = DeepLab(num_classes=1, backbone='resnet34', output_stride=config.out_stride, sync_bn=False,freeze_bn=False).to(self.device)
 
         elif config.model_type == 'Linknet':
             self.net = Linknet().to(self.device)
         self.model_type = config.model_type
-        # 定义优化器
-        self.feat_vecs = torch.tensor([]).cuda()            # 特征向量
-        self.feat_vec_labels = torch.tensor([]).cuda()      # 特征向量的类别
-        self.feat_vec_domlabels = torch.tensor([]).cuda()   # 特征向量的域信息
-        self.mem_vecs = None                                # 聚类中心的向量
+        self.feat_vecs = torch.tensor([]).cuda()            
+        self.feat_vec_labels = torch.tensor([]).cuda()      
+        self.feat_vec_domlabels = torch.tensor([]).cuda()   
+        self.mem_vecs = None                                
         self.mem_vec_labels = None
         self.trainId2name = {0: 'iris', 1: 'background'}
         self.selected_cls = ['iris', 'background']
-        self.max_pointnum = 9000  # 最大特征向量的数量
-        self.perplexity = 30 # 未知
-        self.learning_rate = 100  # t-SNE的学习率
-        self.n_iter = 300  # t-SNE迭代步数 300
-        # self.TSNE = TSNE(n_components=2, perplexity=self.perplexity, learning_rate=self.learning_rate,
-        #                  metric='euclidean', n_iter=self.n_iter, verbose=1)
+        self.max_pointnum = 9000  
+        self.perplexity = 30 
+        self.learning_rate = 100 
+        self.n_iter = 300  
         self.TSNE = TSNE(n_components=2, perplexity=self.perplexity, metric='euclidean', n_iter=self.n_iter, verbose=1)
-        # 聚类中心的类别
-
-        self.optimizer = optim.Adam(self.net.parameters(), lr=config.lr_gen, betas=(0.9, 0.99)) # 1e-3
+        self.optimizer = optim.Adam(self.net.parameters(), lr=config.lr_gen, betas=(0.9, 0.99)) 
         self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=32, eta_min=0)
-        # 定义损失函数
-        self.criterion = torch.nn.BCELoss(size_average=True)  # 选择二分类交叉熵作为损失函数
-        # 定义学习率超参数
+        self.criterion = torch.nn.BCELoss(size_average=True) 
         self.lr = config.lr
         self.num_epochs = config.num_epochs
-        # 定义路径:
         self.model_path = config.model_path
         self.model_path_final = None
         self.result_path = config.result_path
-        # 定义dataset和dataloader
         self.train_loader, self.valid_loader, self.test_loader = All_dataloader(config).build_dataset_1()
-        # 定义变量
         self.best_mIoU = 0
 
         self.Bulid_model_path(config.model_path)
@@ -86,8 +75,6 @@ class Solver(object):
         r = []
         p = []
         acc = []
-
-        # 判断是否载入模型继续训练
         net_path = os.path.join(self.model_path, '%s-%d.pth' % (self.model_type, self.num_epochs))
         if os.path.isfile(net_path):
             self.net.load_state_dict(torch.load(net_path),strict=False)
@@ -104,7 +91,6 @@ class Solver(object):
                 image_s = image_s.to(self.device)
                 index_inter = i
                 if random.random() < 0.65:  # cutout
-                    # img_cutout = image_s.clone()
                     img_cutout, mask_cutout = self.cut_out(image_s.clone(), mask_x.clone())
                 else:
                     img_cutout = image_s.clone()
@@ -114,7 +100,7 @@ class Solver(object):
                 # cutout
                 pred_x, _ ,_ = self.net(img_cutout, need_fp=False)
                 if epoch >= self.start_epoch:
-                    wt_loss = torch.FloatTensor([0]).cuda()  # 初始化
+                    wt_loss = torch.FloatTensor([0]).cuda() 
                     for i, (feature, feature_s) in enumerate(zip(features, features_s)):
                         B, C, H, W = feature.shape
                         eye, mask_matrix, num_remove_cov = get_matrix(C)
@@ -192,7 +178,6 @@ class Solver(object):
             print('[Validation] Valid Loss: %.8f' % epoch_loss)
             print('[Validation] mIoU: %.8f' % (mIoU))
 
-            # 根据验证集上mIoU的大小判断是否保存模型
             if mIoU > self.best_mIoU:
                 self.best_mIoU = mIoU
                 best_epoch = epoch + 1
@@ -305,10 +290,6 @@ class Solver(object):
         checkpoint = torch.load(net_path)
         # self.net.load_state_dict(checkpoint['model_state_dict'], strict=False)
         self.net.load_state_dict(checkpoint, strict=False)
-
-        # net_path =self.model_path_final
-        # checkpoint = torch.load(net_path)
-        # self.net.load_state_dict(checkpoint, strict=False)
         self.net.eval()
         r = []
         p = []
@@ -329,23 +310,8 @@ class Solver(object):
         for i, (images, GT, filename, width, length) in enumerate(self.test_loader):
             images = images.to(self.device)
             GT = GT.to(self.device).to(torch.int64)
-
-            # GT = GT.detach().cpu().numpy()
-
             img_x_np = images.detach().cpu().numpy()
-            # image_np = img_x_np[0].transpose((1, 2, 0))  # 转换为 (H, W, C) 格式
-            # plt.imshow(image_np)
-            # plt.title('image_np')
-            # plt.show()
-            # GT[GT >= 0.5] = 1
-            # SR[SR < 0.5] = 0
-
             prediction, x_to_last, _ = self.net(images, filename, GT)
-
-
-
-
-
             SR = prediction.clone()
             SR = torch.sigmoid(SR)
 
@@ -392,7 +358,7 @@ class Solver(object):
         epoch_R = epoch_R / len(self.test_loader)
         epoch_P = epoch_P / len(self.test_loader)
         epoch_ACC = epoch_ACC / len(self.test_loader)
-        epoch_nice1 = epoch_nice1 / (len(self.test_loader) * 256 * 256)  # 这里的256替换成 实际的图像的大小
+        epoch_nice1 = epoch_nice1 / (len(self.test_loader) * 256 * 256)  
         epoch_nice2 = epoch_nice2 / len(self.test_loader)
 
         print('[Test] mIoU: %.4f' % (mIoU))
@@ -405,41 +371,7 @@ class Solver(object):
 
 
 
-    # def test_2(self):
-    #
-    #     net_path = self.model_path
-    #     checkpoint = torch.load(net_path)
-    #     # self.net.load_state_dict(checkpoint['model_state_dict'], strict=False)
-    #     self.net.load_state_dict(checkpoint, strict=False)
-    #
-    #     # net_path = self.model_path_final
-    #     # checkpoint = torch.load(net_path)
-    #     # self.net.load_state_dict(checkpoint, strict=False)
-    #     self.net.eval()
-    #
-    #     for i, (images, filename, width, length) in enumerate(self.test_loader):
-    #         images = images.to(self.device)
-    #
-    #         # 保存分割结果为png文件
-    #         prediction, _, _ = self.net(images)
-    #         SR = torch.sigmoid(prediction)
-    #
-    #         # if self.use_connect:
-    #         #     "使用连通域优化"
-    #         #     pred_u_w = Connect_are(SR).forward()
-    #         #     SR = pred_u_w.float().to(self.device)
-    #
-    #         # SR = torch.sigmoid(self.net(images)) #SR(Segmentation Result)
-    #         SR[SR >= 0.5] = 1
-    #         SR[SR < 0.5] = 0
-    #         SR = SR.cpu().data.numpy()
-    #         SR = SR.reshape(240, 320)
-    #         SR = SR * 255
-    #         SR = np.uint8(SR)
-    #         save_result = Image.fromarray(SR)
-    #         save_result = save_result.resize((width, length))
-    #         fn = os.path.join(self.result_path, str(*filename) + '.png')
-    #         save_result.save(fn)
+   
 
     def rand_bbox_region(self, coord):
         # past implementation
