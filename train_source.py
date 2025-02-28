@@ -17,16 +17,13 @@ here = osp.dirname(osp.abspath(__file__))
 import winsound
 
 def main():
-    # cudnn.benchmark = True #GPU加速
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
 
-    # 训练超参数
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,)
     parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--lr', type=float, default=0.001)
 
-    # Optimizer超参数
     parser.add_argument('--beta1', type=float, default=0.9)        # momentum1 in Adam
     parser.add_argument('--beta2', type=float, default=0.999)
 
@@ -42,10 +39,6 @@ def main():
     parser.add_argument('--train_path', type=str, default='./dataset/1-16/train/')
     parser.add_argument('--valid_path', type=str, default='./dataset/1-16/valid/')
     parser.add_argument('--test_path', type=str, default='./dataset/1-16/UBIRIS_2249/test/')
-    # UBIRIS_2249 400 * 300
-    # 0405_6475   320 * 240
-    # IITD_2240   320 * 240
-    # CASIA-V4    320 * 280
     parser.add_argument('--source_dataset', type=str, default='casia_v4')
     parser.add_argument('--target_dataset', type=str, default='iitd')
     parser.add_argument('--test_mode', type=int, default=1, help='1 or 2')
@@ -53,11 +46,7 @@ def main():
     parser.add_argument('--result_path', type=str, default='./result2_1123/')
 
     traindata_augmentation = T.Compose([T.Resize((300, 400), interpolation=Image.NEAREST), T.ToTensor()])
-    testdata_augmentation = T.Compose([T.Resize((300, 400), interpolation=Image.NEAREST), T.ToTensor() ])
-
-    # testdata_augmentation = T.Compose([T.Resize((240, 320), interpolation=Image.NEAREST), T.ToTensor() ])
-    # testdata_augmentation = T.Compose([T.Resize((280, 320), interpolation=Image.NEAREST), T.ToTensor() ])
-
+    testdata_augmentation = T.Compose([T.Resize((300, 400), interpolation=Image.NEAREST), T.ToTensor() ]
     args = parser.parse_args()
     args.model = 'FCN8s'
 
@@ -76,9 +65,6 @@ def main():
     args.result_path = os.path.join(args.result_path,args.model_type)
     if not os.path.exists(args.result_path):
         os.makedirs(args.result_path)
-
-    # 定义dataset和dataloader
-
 
     train_loader_l = data.DataLoader(Train_dataset(root=args.train_path,
                                    transform=traindata_augmentation,
@@ -115,9 +101,9 @@ def main():
     elif args.mode == 'test' and args.test_mode == 2:
         solver.test_2()
 
-    duration = 2000  # 持续时间/ms
-    frequency = 500  # 频率/Hz
-    # winsound.Beep(frequency, duration)
+    duration = 2000  
+    frequency = 500  
+
 
 
 if __name__ == '__main__':
